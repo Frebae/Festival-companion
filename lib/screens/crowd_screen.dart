@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class CrowdScreen extends StatefulWidget {
   const CrowdScreen({super.key});
@@ -139,7 +139,7 @@ class ZoneCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: zone.statusColor.withOpacity(0.2),
+                    color: zone.statusColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: zone.statusColor),
                   ),

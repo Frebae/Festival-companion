@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'theme/app_theme.dart'; // Zorg dat dit verwijst naar je thema-bestand
 import 'screens/home_screen.dart';
 import 'screens/crowd_screen.dart';

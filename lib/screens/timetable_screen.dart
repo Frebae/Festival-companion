@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import '../data/act_repository.dart';
+import '../models/act.dart';
+import '../theme/app_theme.dart';
+import '../widgets/act_card.dart';
 
 class TimetableScreen extends StatefulWidget {
   const TimetableScreen({super.key});
@@ -8,129 +12,144 @@ class TimetableScreen extends StatefulWidget {
 }
 
 class _TimetableScreenState extends State<TimetableScreen> {
-  // Lijst met optredens voor het Galactic Funkadelic festival
-  final List<FestivalAct> acts = [
-    FestivalAct(
-      time: '14:00 - 15:30',
-      title: 'Cosmic Echoes',
-      genre: 'Funk & Space Grooves',
-      stage: 'Main Stage',
-      isFavorite: false,
-    ),
-    FestivalAct(
-      time: '16:00 - 17:30',
-      title: 'Stargazer Disco',
-      genre: 'Retro 70s Disco',
-      stage: 'Disco Dome',
-      isFavorite: true,
-    ),
-    FestivalAct(
-      time: '18:00 - 19:30',
-      title: 'Neon Jazz Collectief',
-      genre: 'Space Jazz-Fusion',
-      stage: 'Cosmic Stage 2',
-      isFavorite: false,
-    ),
-    FestivalAct(
-      time: '20:00 - 21:30',
-      title: 'Supernova Funk Masters',
-      genre: 'Funk & Brass',
-      stage: 'Main Stage',
-      isFavorite: false,
-    ),
-    FestivalAct(
-      time: '22:00 - 00:00',
-      title: 'DJ Stardust & The Glitteroids',
-      genre: 'Intergalactic Party Set',
-      stage: 'Disco Dome',
-      isFavorite: false,
-    ),
-  ];
+  final ActRepository _repository = ActRepository();
+
+  List<Act> _alleActs = [];
+  final Set<String> _favorieten = {}; // ID's van favoriete acts
+  String? _gekozenDag;
+  bool _alleenFavorieten = false;
+  bool _laden = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _laadActs();
+  }
+
+  Future<void> _laadActs() async {
+    final acts = await _repository.getActs();
+    if (!mounted) return; // scherm is al gesloten
+    setState(() {
+      _alleActs = acts;
+      final dagen = _dagenUit(acts);
+      _gekozenDag = dagen.isNotEmpty ? dagen.first : null;
+      _laden = false;
+    });
+  }
+
+  /// Alle festivaldagen, op volgorde van de eerste act van die dag.
+  List<String> _dagenUit(List<Act> acts) {
+    final gesorteerd = [...acts]..sort((a, b) => a.start.compareTo(b.start));
+    final dagen = <String>[];
+    for (final act in gesorteerd) {
+      if (!dagen.contains(act.day)) {
+        dagen.add(act.day);
+      }
+    }
+    return dagen;
+  }
+
+  void _toggleFavoriet(Act act) {
+    setState(() {
+      if (_favorieten.contains(act.id)) {
+        _favorieten.remove(act.id);
+      } else {
+        _favorieten.add(act.id);
+      }
+    });
+  }
+
+  /// Alle andere favorieten die in tijd overlappen met deze act.
+  /// Werkt over alle dagen en podia heen.
+  List<Act> _overlappendeFavorieten(Act act) {
+    if (!_favorieten.contains(act.id)) return [];
+    return _alleActs
+        .where((ander) =>
+            ander.id != act.id &&
+            _favorieten.contains(ander.id) &&
+            act.overlaptMet(ander))
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_laden) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Programma')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final dagen = _dagenUit(_alleActs);
+
+    // Acts van de gekozen dag, op begintijd
+    final actsVanDag = _alleActs
+        .where((act) => act.day == _gekozenDag)
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+
+    // Eventueel alleen de favorieten
+    final zichtbareActs = _alleenFavorieten
+        ? actsVanDag.where((act) => _favorieten.contains(act.id)).toList()
+        : actsVanDag;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Festival Programma'),
-        backgroundColor: const Color(0xFF1E143F),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Programma')),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            color: const Color(0xFF120A2A),
-            child: const Row(
+          // Dag kiezen
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Icon(Icons.schedule, color: Color(0xFFFF2A85), size: 28), // Neon roze
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Bekijk alle optredens en tik op het hartje om jouw favorieten op te slaan!',
-                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                for (final dag in dagen)
+                  ChoiceChip(
+                    label: Text(dag),
+                    labelStyle: const TextStyle(
+                      fontSize: 16,
+                      color: GalacticColors.textLight,
+                    ),
+                    selected: _gekozenDag == dag,
+                    selectedColor: GalacticColors.primaryNeonPink,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _gekozenDag = dag),
                   ),
-                ),
               ],
             ),
           ),
+
+          // Filter: alleen favorieten
+          SwitchListTile(
+            title: const Text('Alleen mijn favorieten'),
+            value: _alleenFavorieten,
+            onChanged: (waarde) => setState(() => _alleenFavorieten = waarde),
+          ),
+
+          // Lijst of lege toestand
           Expanded(
-            child: ListView.builder(
-              itemCount: acts.length,
-              itemBuilder: (context, index) {
-                final act = acts[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: const Color(0xFF1E143F), // Jullie Galactic kaartkleur
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+            child: zichtbareActs.isEmpty
+                ? _LegeToestand(
+                    tekst: actsVanDag.isEmpty
+                        ? 'Er staan nog geen acts op het programma voor deze dag.'
+                        : 'Je hebt nog geen favorieten op ${_gekozenDag ?? 'deze dag'}.\n'
+                            'Zet het filter uit en tik op de ster bij een act.',
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: zichtbareActs.length,
+                    itemBuilder: (context, index) {
+                      final act = zichtbareActs[index];
+                      return ActCard(
+                        act: act,
+                        isFavoriet: _favorieten.contains(act.id),
+                        overlappendeActs: _overlappendeFavorieten(act),
+                        onFavorietTap: () => _toggleFavoriet(act),
+                      );
+                    },
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF2A85).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.music_note, color: Color(0xFFFF2A85)),
-                    ),
-                    title: Text(
-                      act.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 6),
-                        Text('${act.genre} · ${act.stage}',
-                            style: const TextStyle(color: Colors.white70)),
-                        const SizedBox(height: 4),
-                        Text(act.time,
-                            style: const TextStyle(
-                                color: Color(0xFFFF8800), fontWeight: FontWeight.bold)), // Disco oranje
-                      ],
-                    ),
-                    trailing: IconButton(
-                      icon: Icon(
-                        act.isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: act.isFavorite ? const Color(0xFFFF2A85) : Colors.grey,
-                        size: 28,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          act.isFavorite = !act.isFavorite; // Zet favoriet aan/uit
-                        });
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -138,18 +157,34 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 }
 
-class FestivalAct {
-  String time;
-  String title;
-  String genre;
-  String stage;
-  bool isFavorite;
+/// Vriendelijke melding als er niets te tonen is.
+class _LegeToestand extends StatelessWidget {
+  final String tekst;
 
-  FestivalAct({
-    required this.time,
-    required this.title,
-    required this.genre,
-    required this.stage,
-    required this.isFavorite,
-  });
+  const _LegeToestand({required this.tekst});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.event_busy,
+              size: 48,
+              color: GalacticColors.textMuted,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              tekst,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
