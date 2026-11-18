@@ -6,6 +6,7 @@ import 'screens/crowd_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/timetable_screen.dart';
 import 'screens/sos_keuze_screen.dart';
+import 'screens/vrienden_screen.dart';
 
 void main() {
   runApp(const FestivalBuddyApp());
@@ -36,7 +37,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
   // De SOS-knop is de laatste knop in de balk, maar geen gewoon tabblad.
-  static const int _sosIndex = 4;
+  static const int _sosIndex = 5;
 
   // Al jullie gemaakte schermen op een rij achter de knoppen onderaan
   final List<Widget> _screens = [
@@ -44,6 +45,7 @@ class _MainNavigationState extends State<MainNavigation> {
     const TimetableScreen(), // Index 1 (Programma)
     const CrowdScreen(), // Index 2 (Drukte / Crowd)
     const MapScreen(), // Index 3 (Kaart)
+    const VriendenScreen(), // Index 4 (Vrienden)
   ];
 
   void _onTap(int index) {
@@ -86,6 +88,10 @@ class _MainNavigationState extends State<MainNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.map),
             label: 'Kaart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group_add),
+            label: 'Vrienden',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.sos, color: SosKleuren.roodLicht, size: 30),
